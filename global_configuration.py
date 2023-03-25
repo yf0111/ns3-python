@@ -1,6 +1,5 @@
 import math
 
-PI = 3.14159265
 room_size = 5
 
 
@@ -16,6 +15,7 @@ VLC_AP_num = 4
 VLC_AP_per_row = 2
 VLC_AP_height = 3
 VLC_AP_power = 3
+VLC_AP_bandwidth = 40
 VLC_noise_power_spectral_density = 1e15
 conversion_efficiency = 0.53
 
