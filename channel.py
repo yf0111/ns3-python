@@ -1,5 +1,7 @@
 import global_configuration as global_c
 import math
+import numpy as np
+import show
 
 
 class Channel:
@@ -9,7 +11,7 @@ class Channel:
     # vlc channel gain
     @staticmethod
     def radianDegree(radian):
-        return radian * 180.0 / global_c.PI
+        return radian * 180.0 / math.pi
     
     @staticmethod
     def getCosineOfIncidenceAngle(ue,ap):
@@ -46,7 +48,7 @@ class Channel:
             return 0.0
         irradiance_angle = Channel.getIrradianceAngle(ue=ue,ap=ap)
         distance = Channel.getDistance(ue=ue,ap=ap)
-        los = (global_c.lambertian_coefficient + 1) * global_c.receiver_area / (2 * global_c.PI * math.pow(distance,2))
+        los = (global_c.lambertian_coefficient + 1) * global_c.receiver_area / (2 * math.pi * math.pow(distance,2))
         los = los * math.pow(math.cos(irradiance_angle),global_c.lambertian_coefficient)
         los = los * cosine_incidence_angle
         los = los * global_c.concentrator_gain
@@ -57,16 +59,16 @@ class Channel:
     def calculateAllVlcLightOfSight(my_ue_list,VLC_LOS_matrix,my_ap_list):
         for i in range (global_c.UE_num):
             my_ue_list[i].randomOrientationAngle()
-        for AP_index in range(global_c.VLC_AP_num):   
+        for AP_index in range(1,global_c.RF_AP_num+global_c.VLC_AP_num):
             for UE_index in range (global_c.UE_num):
-                VLC_LOS_matrix[AP_index][UE_index] = Channel.estimateOneVlcLightOfSight(my_ue_list[UE_index],my_ap_list[AP_index])
+                VLC_LOS_matrix[AP_index-1][UE_index] = Channel.estimateOneVlcLightOfSight(my_ue_list[UE_index],my_ap_list[AP_index])
     
     # vlc sinr
     @staticmethod
     def calculateAllVlcSINR(VLC_LOS_matrix,VLC_SINR_matrix,my_ue_list,my_ap_list):
         for AP_index in range (global_c.VLC_AP_num):
             for UE_index in range (global_c.UE_num):
-                VLC_SINR_matrix = Channel.estimateOneVlcSINR(VLC_LOS_matrix=VLC_LOS_matrix,ue=my_ue_list[UE_index],ap=my_ap_list[AP_index])
+                VLC_SINR_matrix[AP_index][UE_index] = Channel.estimateOneVlcSINR(VLC_LOS_matrix=VLC_LOS_matrix,ue=UE_index,ap=AP_index)
     
     @staticmethod
     def estimateOneVlcSINR(VLC_LOS_matrix,ue,ap):
@@ -82,7 +84,7 @@ class Channel:
     def updateAllvlcSINR(VLC_LOS_matrix,VLC_SINR_matrix,AP_association_matrix):
         for VLC_AP_index in range(global_c.VLC_AP_num):
             for UE_index in range(global_c.UE_num):
-                VLC_SINR_matrix = Channel.estimateUpdateVlcSINR(VLC_LOS_matrix,VLC_AP_index,UE_index,AP_association_matrix)
+                VLC_SINR_matrix[VLC_AP_index][UE_index] = Channel.estimateUpdateVlcSINR(VLC_LOS_matrix,VLC_AP_index,UE_index,AP_association_matrix)
 
     @staticmethod
     def estimateUpdateVlcSINR(VLC_LOS_matrix,VLC_AP_index,UE_index,AP_association_matrix):
@@ -97,6 +99,7 @@ class Channel:
                     interference += math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[AP_index][UE_index],2)
         noise = global_c.VLC_AP_bandwidth * global_c.VLC_noise_power_spectral_density
         SINR = math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[VLC_AP_index][UE_index],2) / (interference + noise)
+        return SINR
     
     @staticmethod
     def calculateAllVlcDataRate(VLC_SINR_matrix,VLC_data_rate_matrix):
@@ -106,8 +109,62 @@ class Channel:
     
     @staticmethod
     def estimateOneVlcDataRate(VLC_SINR_matrix,AP_index,UE_index):
-        data_rate = (global_c.VLC_AP_bandwidth / 2) * math.log2(1 + (6 / math.pi * math.e)) * VLC_SINR_matrix[AP_index][UE_index]
+        data_rate = (global_c.VLC_AP_bandwidth / 2) * math.log2(1 + (6 / math.pi * math.e) * VLC_SINR_matrix[AP_index][UE_index])
         return 0.0 if math.isnan(data_rate) else data_rate
     
-    
+    @staticmethod
+    def calculateRFChannelGain(my_ue_list,my_ap_list,RF_channel_gain_vector):
+        for i in range(global_c.UE_num):
+            RF_channel_gain_vector[i] = Channel.estimateOneRFChannelGain(ap=my_ap_list[0],ue=my_ue_list[i])
+
+    @staticmethod
+    def estimateOneRFChannelGain(ap,ue):
+        distance = Channel.getDistance(ap=ap,ue=ue)
+        h = np.random.rayleigh(2.46)
+        l_d = 20 * math.log10( distance + global_c.RF_carrier_frequency ) - 147.5 + 3
+        if distance >= global_c.breakpoint_distance:
+            l_d += +35 * math.log10( distance/global_c.breakpoint_distance )
+        rf_loss_channel_gain = math.pow(10,(-l_d/10)) * math.pow(h,2)
+        return rf_loss_channel_gain
         
+    @staticmethod
+    def calculateAllRFSINR(RF_SINR_vector,RF_channel_gain_vector):
+        for i in range(global_c.UE_num):
+            RF_SINR_vector[i] = Channel.estimateOneRFSINR(RF_channel_gain_vector=RF_channel_gain_vector,ue=i)
+
+    @staticmethod
+    def estimateOneRFSINR(RF_channel_gain_vector,ue):
+        numerator = global_c.RF_AP_power * RF_channel_gain_vector[ue]
+        denominator = global_c.RF_noise_power_spectral_density * global_c.RF_AP_bandwidth
+        SINR = numerator / denominator
+        return SINR
+
+    @staticmethod
+    def calculateALLRFDataRate(RF_data_rate_vector,RF_SINR_vector):
+        for i in range(global_c.UE_num):
+            RF_data_rate_vector[i] = Channel.estimateOneRFDataRate(RF_SINR_vector = RF_SINR_vector,ue=i)
+
+    @staticmethod
+    def estimateOneRFDataRate(RF_SINR_vector,ue):
+        data_rate = global_c.RF_AP_bandwidth * math.log2(1+RF_SINR_vector[ue])
+        return 0.0 if math.isnan(data_rate) else data_rate
+    
+
+    @staticmethod
+    def precalculation(my_ap_list,my_ue_list,VLC_LOS_matrix,VLC_SINR_matrix,VLC_data_rate_matrix,RF_channel_gain_vector,RF_SINR_vector,RF_data_rate_vector):
+        Channel.calculateAllVlcLightOfSight(my_ue_list=my_ue_list,my_ap_list=my_ap_list,VLC_LOS_matrix=VLC_LOS_matrix)
+        Channel.calculateAllVlcSINR(VLC_LOS_matrix=VLC_LOS_matrix,VLC_SINR_matrix=VLC_SINR_matrix,my_ap_list=my_ap_list,my_ue_list=my_ue_list)
+        Channel.calculateAllVlcDataRate(VLC_SINR_matrix=VLC_SINR_matrix,VLC_data_rate_matrix=VLC_data_rate_matrix)
+
+        # show.Show.printVLCLOS(VLC_LOS_matrix)
+        # show.Show.printVLCSINR(VLC_SINR_matrix)
+        # show.Show.printVLCDataRate(VLC_data_rate_matrix)
+
+        Channel.calculateRFChannelGain(my_ap_list=my_ap_list,my_ue_list=my_ue_list,RF_channel_gain_vector=RF_channel_gain_vector)
+        Channel.calculateAllRFSINR(RF_SINR_vector=RF_SINR_vector,RF_channel_gain_vector=RF_channel_gain_vector)
+        Channel.calculateALLRFDataRate(RF_data_rate_vector=RF_data_rate_vector,RF_SINR_vector=RF_SINR_vector)
+        
+        # show.Show.printRFChannelGain(RF_channel_gain_vector)
+        # show.Show.printRFSINR(RF_SINR_vector)
+        # show.Show.printRFDateRate(RF_data_rate_vector)
+

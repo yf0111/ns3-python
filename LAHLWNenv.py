@@ -11,6 +11,12 @@ import numpy as np
 my_ue_list = []
 my_ap_list = []
 VLC_LOS_matrix = [[0]*global_c.UE_num for i in range(global_c.VLC_AP_num)] # VLC_AP_num x UE_num
+VLC_SINR_matrix = [[0]*global_c.UE_num for i in range(global_c.VLC_AP_num)] # VLC_AP_num x UE_num
+VLC_data_rate_matrix = [[0]*global_c.UE_num for i in range(global_c.VLC_AP_num)] # VLC_AP_num x UE_num
+RF_channel_gain_vector = [0 for i in range(global_c.UE_num)] # 1 x UE_num
+RF_SINR_vector = [0 for i in range(global_c.UE_num)] # 1 x UE_num
+RF_data_rate_vecotr = [0 for i in range(global_c.UE_num)] # 1 x UE_num
+
 
 class LAHLWNenv(gym.Env):
     def __init__(self):
@@ -37,8 +43,8 @@ class User:
     
     def randomOrientationAngle(self):
         new_polor_angle = global_c.c_0 + global_c.c_1 + self.polar_angle + np.random.normal() # in degree
-        self.polar_angle = new_polor_angle
-        self.azimuth_angle = -1 * global_c.PI
+        self.polar_angle = new_polor_angle / 180 * math.pi
+        self.azimuth_angle = -1 * math.pi
 
 
 class AP:
@@ -66,5 +72,4 @@ for j in range(global_c.RF_AP_num + global_c.VLC_AP_num):
 show.Show.printRFAPPosition(ap_list=my_ap_list)
 show.Show.printVLCAPPosition(ap_list=my_ap_list)
 show.Show.printUEPosition(ue_list=my_ue_list)
-channel.Channel.calculateAllVlcLightOfSight(my_ue_list=my_ue_list,VLC_LOS_matrix=VLC_LOS_matrix,my_ap_list=my_ap_list)
-show.Show.printVLCLOS(VLC_LOS_matrix)
+channel.Channel.precalculation(my_ap_list=my_ap_list,my_ue_list=my_ue_list,VLC_LOS_matrix=VLC_LOS_matrix,VLC_SINR_matrix=VLC_SINR_matrix,VLC_data_rate_matrix=VLC_data_rate_matrix,RF_channel_gain_vector=RF_channel_gain_vector,RF_SINR_vector=RF_SINR_vector,RF_data_rate_vector=RF_data_rate_vecotr)
