@@ -37,6 +37,8 @@ RF_three_db_cutoff = 1
 
 # UE
 UE_num = 10
+LA_UE_num = int(UE_num * 0.4)
+UE_height = 1
 
 # random orientation angle (UE random orientation)
 coherence_time = 130.0
@@ -46,3 +48,10 @@ angle_variance = 7.78
 c_1 = pow(0.05, sampling_time/coherence_time)
 c_0 = (1.0 - c_1) * angle_mean
 noise_variance = (1.0 - c_1 * c_1) * angle_variance * angle_variance
+
+
+# system parameter
+eta_hho = 0.9
+eta_vho = 0.6
+C_one = 100
+C_two = 1000

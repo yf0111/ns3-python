@@ -78,7 +78,7 @@ class Channel:
                 interference += math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[AP_index][ue],2)
         noise = global_c.VLC_AP_bandwidth * global_c.VLC_noise_power_spectral_density
         SINR = math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[ap][ue],2) / (interference + noise)
-        return SINR
+        return 0 if SINR == 0 else 10 * math.log10(SINR)
     
     @staticmethod
     def updateAllvlcSINR(VLC_LOS_matrix,VLC_SINR_matrix,AP_association_matrix):
@@ -99,7 +99,7 @@ class Channel:
                     interference += math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[AP_index][UE_index],2)
         noise = global_c.VLC_AP_bandwidth * global_c.VLC_noise_power_spectral_density
         SINR = math.pow(global_c.conversion_efficiency * global_c.VLC_AP_power * VLC_LOS_matrix[VLC_AP_index][UE_index],2) / (interference + noise)
-        return SINR
+        return 0 if SINR == 0 else 10 * math.log10(SINR)
     
     @staticmethod
     def calculateAllVlcDataRate(VLC_SINR_matrix,VLC_data_rate_matrix):
