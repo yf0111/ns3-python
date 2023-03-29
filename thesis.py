@@ -50,6 +50,8 @@ class Thesis:
     @staticmethod
     def init():
         # init UE & AP
+        my_ue_list.clear()
+        my_ap_list.clear()
         for i in range(global_c.UE_num):
             if i < global_c.LA_UE_num:
                 my_ue_list.append(User(i,"LA"))
@@ -117,8 +119,6 @@ class Thesis:
                     data_rate = 0.0
                     if state[i][3] < 5:
                         data_rate = RF_data_rate_vecotr[i] if state[i][3] == 0 else VLC_data_rate_matrix[state[i][3]-1][i]
-                    else:
-                        print("SAP UE APS is wrong!")
                     
                     eta = 0.0
                     if prestate[i][3] == state[i][3] :
@@ -156,7 +156,23 @@ class Thesis:
             if action[i] > 4 :
                 ap_assocoated_matrix[0][i] = 1
                 ap_assocoated_matrix[action[i]-4][i] = 1
-        print(np.matrix(ap_assocoated_matrix))
         return ap_assocoated_matrix
 
+    @staticmethod
+    def getUEdemand():
+        ue_demand = [] 
+        for i in range(global_c.UE_num):
+            ue_demand.append(my_ue_list[i].require_data_rate)
+        return ue_demand
     
+    @staticmethod
+    def cal_final_data_rate(action):
+        ue_final = []
+        for i in range(global_c.UE_num):
+            if action[i] == 0:
+                ue_final.append(RF_data_rate_vecotr[i])
+            elif action[i] > 0 and action[i] < 5 :
+                ue_final.append(VLC_data_rate_matrix[action[i]-1][i])
+            elif action > 4 :
+                ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[action[i]-5][i])
+        return ue_final
