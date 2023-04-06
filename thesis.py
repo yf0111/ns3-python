@@ -82,68 +82,150 @@ class Thesis:
         # print(np.matrix(all_SINR_matrix))
 
     @staticmethod
-    def createState(action):  # UE_num x 4, entry is [Wifi SNR] [highest VLC SINR] [second VLC SINR] [associated AP]
-        state = [[-1]*4 for i in range(global_c.UE_num)] # UE_num
+    def createState(action):
+        # check action 合法性
+        flag = [False for i in range(global_c.UE_num)]
         for i in range(global_c.UE_num):
-            highest_AP_value = -1
-            second_AP_value = -1
-            for VLC_AP_index in range(global_c.VLC_AP_num):
-                if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
-                    second_AP_value = highest_AP_value
-                    highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i] 
-            state[i][0] = all_SINR_matrix[0][i] # RF SINR
-            state[i][1] = 0.0 if highest_AP_value < 0 else highest_AP_value # highest VLC SINR
-            state[i][2] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
-            state[i][3] = action[i]
+            if my_ue_list[i].group == "SAP":
+                if action[i] in range(0,5):
+                    flag[i] = True
+            elif my_ue_list[i].group == "LA":
+                if action[i] in range(0,9):
+                    flag[i] = True
+
+        # 法一 [[UE][UE][UE] * UE_num  ..... ]
+        # state = [[-1]*4 for i in range(global_c.UE_num)] # UE_num
+        # for i in range(global_c.UE_num):
+        #     highest_AP_value = -1
+        #     second_AP_value = -1
+        #     for VLC_AP_index in range(global_c.VLC_AP_num):
+        #         if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
+        #             second_AP_value = highest_AP_value
+        #             highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i] 
+        #     state[i][0] = all_SINR_matrix[0][i] # RF SINR
+        #     state[i][1] = 0.0 if highest_AP_value < 0 else highest_AP_value # highest VLC SINR
+        #     state[i][2] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
+        #     state[i][3] = action[i]
+
+        # 法二 [[Wifi SNR] [highest VLC SINR] [second VLC SINR] [AP load]]  -> 一個一維大vector (1 x (UE_num + UE_num + UE_num + RF_AP_num + VLC_AP_num)) 
+        wifi_snr = np.array([-1]*global_c.UE_num)
+        lifi_first_snr = np.array([-1]*global_c.UE_num)
+        lifi_second_snr = np.array([-1]*global_c.UE_num)
+        ap_load = np.array([0]*(global_c.RF_AP_num+global_c.VLC_AP_num))
+         # 如果有 action 不合法 
+        if (False in flag):
+            # print("illegal")
+            state = np.concatenate((wifi_snr,lifi_first_snr,lifi_second_snr,ap_load))
+        else : 
+            # print("legal")
+            for i in range (global_c.UE_num):
+                highest_AP_value = -1
+                second_AP_value = -1
+                wifi_snr[i] = all_SINR_matrix[0][i] # RF SNR
+                for VLC_AP_index in range(global_c.VLC_AP_num):
+                    if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
+                        second_AP_value = highest_AP_value
+                        highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i]
+                lifi_first_snr[i] = 0.0 if highest_AP_value < 0 else highest_AP_value  # highest VLC SINR
+                lifi_second_snr[i] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
+            for ue_index in range(global_c.UE_num):
+                if action[ue_index] == 0 :
+                    ap_load[0] += 1 # only wifi
+                elif action[ue_index] > 0 and action[ue_index] < 5:
+                    ap_load[action[ue_index]] += 1 # only lifi
+                elif action[ue_index] > 4:
+                    ap_load[0] += 1
+                    ap_load[action[ue_index]-4] += 1
+            state = np.concatenate((wifi_snr,lifi_first_snr,lifi_second_snr,ap_load))
         return state
     
     @staticmethod
     def updateAPload(state):
+        # 法一 [[UE][UE][UE] * UE_num  ..... ]
+        # ap_load_vector = [0 for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # 1 x (RF_AP_num + VLC_AP_num)
+        # for i in range(global_c.UE_num):
+        #     if state[i][3] != -1 and state[i][3] < 5:
+        #         ap_load_vector[state[i][3]] += 1
+        #     if state[i][3] > 4 and state[i][3] < 9:
+        #         ap_load_vector[0] += 1
+        #         ap_load_vector[state[i][3]-4] += 1
+
+        # 法二 [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
         ap_load_vector = [0 for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # 1 x (RF_AP_num + VLC_AP_num)
-        for i in range(global_c.UE_num):
-            if state[i][3] != -1 and state[i][3] < 5:
-                ap_load_vector[state[i][3]] += 1
-            if state[i][3] > 4 and state[i][3] < 9:
-                ap_load_vector[0] += 1
-                ap_load_vector[state[i][3]-4] += 1
+        for i in range(len(ap_load_vector)):
+            ap_load_vector[i] = state[3*global_c.UE_num+i]
         return ap_load_vector
 
     @staticmethod
-    def calculateR1(state,prestate):
+    def calculateR1(state,prestate,action,preaction):
+        # 法一 [[UE][UE][UE] * UE_num  ..... ]
+        # total_throughput = 0.0
+        # ap_load_vector = Thesis.updateAPload(state)
+        # for i in range(global_c.UE_num):
+        #     throughput = 0.0
+        #     if my_ue_list[i].group == "SAP":
+        #         if state[i][3] != -1 :
+        #             data_rate = 0.0
+        #             if state[i][3] < 5:
+        #                 data_rate = RF_data_rate_vecotr[i] if state[i][3] == 0 else VLC_data_rate_matrix[state[i][3]-1][i]
+                    
+        #             eta = 0.0
+        #             if prestate[i][3] == state[i][3] :
+        #                 eta = 1
+        #             elif prestate[i][3] != 0 and state[i][3] !=0 :
+        #                 eta = global_c.eta_hho
+        #             elif prestate[i][3] == 0 and state[i][3] !=0 :
+        #                 eta = global_c.eta_vho
+        #             throughput = eta * data_rate * (1 / ap_load_vector[state[i][3]])
+        #     if my_ue_list[i].group == "LA":
+        #         if state[i][3] != -1:
+        #             eta = 0.0
+        #             if prestate[i][3] == state[i][3]:
+        #                 eta = 1
+        #             elif prestate[i][3] > 4 and state[i][3] > 4:
+        #                 eta = global_c.eta_hho
+        #             else:
+        #                 eta = global_c.eta_vho
+        #             if state[i][3] > 4:
+        #                 throughput = eta * ((RF_data_rate_vecotr[i] * (1 / ap_load_vector[0])) + VLC_data_rate_matrix[state[i][3]-5][i] * (1 / ap_load_vector[state[i][3]-4]) )
+        #             else :
+        #                 throughput = eta * RF_data_rate_vecotr[i] * (1 / ap_load_vector[0]) if state[i][3] == 0 else eta * VLC_data_rate_matrix[state[i][3]-1][i] * (1 / ap_load_vector[state[i][3]])
+        #     total_throughput += throughput
+        # return total_throughput / global_c.UE_num
+    
+        # 法二 [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
         total_throughput = 0.0
-        ap_load_vector = Thesis.updateAPload(state)
+        ap_load_vector = Thesis.updateAPload(state=state)
         for i in range(global_c.UE_num):
             throughput = 0.0
             if my_ue_list[i].group == "SAP":
-                if state[i][3] != -1 :
+                if action[i] != -1 :
                     data_rate = 0.0
-                    if state[i][3] < 5:
-                        data_rate = RF_data_rate_vecotr[i] if state[i][3] == 0 else VLC_data_rate_matrix[state[i][3]-1][i]
-                    
+                    if action[i] < 5:
+                        data_rate = RF_data_rate_vecotr[i] if action[i] == 0 else VLC_data_rate_matrix[action[i]-1][i]
                     eta = 0.0
-                    if prestate[i][3] == state[i][3] :
+                    if preaction[i] == action[i]:
                         eta = 1
-                    elif prestate[i][3] != 0 and state[i][3] !=0 :
+                    elif preaction[i] != 0 and action[i] != 0 :
                         eta = global_c.eta_hho
-                    elif prestate[i][3] == 0 and state[i][3] !=0 :
+                    elif preaction[i] == 0 and action[i] != 0 :
                         eta = global_c.eta_vho
-                    throughput = eta * data_rate * (1 / ap_load_vector[state[i][3]])
-            if my_ue_list[i].group == "LA":
-                if state[i][3] != -1:
+                    throughput = eta * data_rate * (1 / ap_load_vector[action[i]])
+            elif my_ue_list[i].group == "LA":
+                if action[i] != -1 :
                     eta = 0.0
-                    if prestate[i][3] == state[i][3]:
+                    if preaction[i] == action[i]:
                         eta = 1
-                    elif prestate[i][3] > 4 and state[i][3] > 4:
+                    elif preaction[i] > 4 and action[i] > 4:
                         eta = global_c.eta_hho
                     else:
                         eta = global_c.eta_vho
-                    if state[i][3] > 4:
-                        throughput = eta * ((RF_data_rate_vecotr[i] * (1 / ap_load_vector[0])) + VLC_data_rate_matrix[state[i][3]-5][i] * (1 / ap_load_vector[state[i][3]-4]) )
-                    else :
-                        throughput = eta * RF_data_rate_vecotr[i] * (1 / ap_load_vector[0]) if state[i][3] == 0 else eta * VLC_data_rate_matrix[state[i][3]-1][i] * (1 / ap_load_vector[state[i][3]])
+                    if action[i] > 4:
+                        throughput = eta * ((RF_data_rate_vecotr[i] * ( 1 / ap_load_vector[0])) + VLC_data_rate_matrix[action[i]-5][i] * (1 / ap_load_vector[action[i]-4]))
+                    else:
+                        throughput = eta * RF_data_rate_vecotr[i] * (1/ap_load_vector[0]) if action[i] == 0 else eta * VLC_data_rate_matrix[action[i]-1][i] * (1/ap_load_vector[action[i]])
             total_throughput += throughput
         return total_throughput / global_c.UE_num
-
 
     @staticmethod
     def action_to_AP_association_matrix(action):
@@ -172,7 +254,8 @@ class Thesis:
             if action[i] == 0:
                 ue_final.append(RF_data_rate_vecotr[i])
             elif action[i] > 0 and action[i] < 5 :
-                ue_final.append(VLC_data_rate_matrix[action[i]-1][i])
-            elif action > 4 :
-                ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[action[i]-5][i])
+                ue_final.append(VLC_data_rate_matrix[int(action[i])-1][i])
+            elif action[i] > 4 :
+                ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[int(action[i])-5][i])
         return ue_final
+    

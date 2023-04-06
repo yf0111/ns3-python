@@ -8,7 +8,9 @@ import random
 import matplotlib.pyplot as plt
 
 state_list = []
+action_list = []
 now_ap_association = []
+
 # action space
 # action -> 應該要是 [1 x UE_num] 的形式
 # 0 : means that this UE connected to WiFi
@@ -27,11 +29,11 @@ class LAHLWNenv(gym.Env):
         # metadata = {'render.modes':['human']}
         super(LAHLWNenv,self).__init__()
         self.currstep = 1 # current step (index)
-        #self.action_space = spaces.Discrete(10) # 10 possible APS ( 0 ~ 9 )
-        self.action_space = spaces.Box(low= 0, high=8,shape=(1,global_c.UE_num),dtype=np.int8)
+        self.action_space = spaces.Box(low= 0, high=8,shape=(global_c.UE_num,),dtype=np.int8)
         # self.action_space = LAHLWNenv.possible_action()
-        self.observation_space = spaces.Box(low = 0 , high = 1e10,shape=(global_c.UE_num,4),dtype=np.float32) # UE_num x 4, entry is [Wifi SNR] [highest VLC SINR] [second VLC SINR] [associated AP]
-    
+        # self.observation_space = spaces.Box(low = 0 , high = 1e10,shape=(global_c.UE_num,4),dtype=np.float32) # UE_num x 4, entry is [Wifi SNR] [highest VLC SINR] [second VLC SINR] [associated AP]
+        self.observation_space = spaces.Box(low = 0, high = 1e10, shape=(global_c.UE_num + global_c.UE_num + global_c.UE_num + global_c.RF_AP_num + global_c.VLC_AP_num,), dtype=np.float32)
+
     def step(self, action):
         done = False
         self.currstep += 1
@@ -39,13 +41,11 @@ class LAHLWNenv(gym.Env):
         # print(action)
         # for i in range(global_c.UE_num):
         #     if thesis.my_ue_list[i].group == "SAP":
-        #         print("SAP")
-        #         # if action[i] in range(0,5):
-        #         #     flag[i] = True
+        #         if action[i] in range(0,5):
+        #             flag[i] = True
         #     elif thesis.my_ue_list[i].group == "LA":
-        #         print("LA")
-        #         # if action[i] in range(0,9):
-        #         #     flag[i] = True
+        #         if action[i] in range(0,9):
+        #             flag[i] = True
         # if (False in flag):
         #     action = LAHLWNenv.possible_action()
         my_action = LAHLWNenv.possible_action()
@@ -53,8 +53,9 @@ class LAHLWNenv(gym.Env):
         channel.Channel.updateAllvlcSINR(VLC_SINR_matrix=thesis.VLC_SINR_matrix,VLC_LOS_matrix=thesis.VLC_LOS_matrix,AP_association_matrix=ap_associated_matrix)
         new_state = thesis.Thesis.createState(my_action)
         state_list.append(new_state)
-        reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2])
-        # print("step:",self.currstep," reward:",reward)
+        action_list.append(my_action)
+        reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2])
+        # print("state:",new_state," reward:",reward)
         info = {}
         if self.currstep > 1000:
             done = True
@@ -62,16 +63,18 @@ class LAHLWNenv(gym.Env):
 
     def reset(self):
         state_list.clear()
+        action_list.clear()
         thesis.Thesis.init()
         thesis.Thesis.allSINR()
         action = [-1 for i in range(global_c.UE_num)]
         new_state = thesis.Thesis.createState(action)
+        action_list.append(action)
         state_list.append(new_state)
         return new_state
     
     @staticmethod
     def possible_action():
-        action = [-1 for i in range(global_c.UE_num)]
+        action = np.array([-1 for i in range(global_c.UE_num)])
         for i in range(global_c.UE_num):
             if thesis.my_ue_list[i].group == "SAP":
                 action[i] = random.randint(0,4)

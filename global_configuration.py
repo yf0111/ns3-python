@@ -55,3 +55,4 @@ eta_hho = 0.9
 eta_vho = 0.6
 C_one = 100
 C_two = 1000
+state_num = 1000
