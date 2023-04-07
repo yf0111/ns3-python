@@ -3,21 +3,26 @@ import numpy as np
 from LAHLWNenv import LAHLWNenv
 import thesis
 from sb3_contrib import TRPO
+import csv
+import time
 
+
+start = time.time()
 ue_satisfaction = [[0] for i in range(global_c.UE_num)]
 avg_satis = [[0] for i in range(global_c.state_num)]
 avg_throughput = [[0] for i in range(global_c.state_num)]
 env = LAHLWNenv()
 
 # # --------------------------------- training model ---------------------------------
-# model = TRPO(policy="MlpPolicy",env=env,verbose=1,gamma=0.9,target_kl=0.01)
-# model.learn(total_timesteps=1000000)
-# model.get_parameters()
-# model.save("trpo_LAHLWN")
-# del model # remove to demonstrate saving and loading
+model = TRPO(policy="MlpPolicy",env=env,verbose=1,gamma=0.9,target_kl=0.01)
+model.learn(total_timesteps=100000000)
+model.get_parameters()
+model.save("trpo_LAHLWN")
+del model # remove to demonstrate saving and loading
 # # --------------------------------- end of training model ---------------------------
 
 model = TRPO.load("trpo_LAHLWN")
+
 
 for one in range(global_c.state_num):
     obs = env.reset()
@@ -36,5 +41,15 @@ for one in range(global_c.state_num):
     avg_satis[one] = total_satis / global_c.UE_num
     avg_throughput[one] = total_throughput / global_c.UE_num
 
+
+
+with open('output.csv','w',newline='') as csvfile:
+    writer = csv.writer(csvfile,delimiter=',')
+    for i in range(global_c.state_num):
+        writer.writerow([avg_satis[i],avg_throughput[i]])
+
 print("avg satisfaction:",avg_satis)
 print("avg throughput:",avg_throughput)
+
+end = time.time()
+print("執行時間：%f 秒" % (end - start))
