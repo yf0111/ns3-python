@@ -29,36 +29,43 @@ class LAHLWNenv(gym.Env):
         # metadata = {'render.modes':['human']}
         super(LAHLWNenv,self).__init__()
         self.currstep = 1 # current step (index)
-        self.action_space = spaces.Box(low= 0, high=8,shape=(global_c.UE_num,),dtype=np.int8)
+
+        self.action_space = spaces.MultiDiscrete(np.array([9,9,9,9,5,5,5,5,5,5])) # SAP  0 ~ 4 , total : 5 / LA   0 ~ 8 , total : 9 , ue : LA,LA,LA,LA,SAP....
+        # self.action_space = spaces.Box(low= 0, high=8,shape=(global_c.UE_num,),dtype=np.int8)
         # self.action_space = LAHLWNenv.possible_action()
+        
         # self.observation_space = spaces.Box(low = 0 , high = 1e10,shape=(global_c.UE_num,4),dtype=np.float32) # UE_num x 4, entry is [Wifi SNR] [highest VLC SINR] [second VLC SINR] [associated AP]
         self.observation_space = spaces.Box(low = 0, high = 1e10, shape=(global_c.UE_num + global_c.UE_num + global_c.UE_num + global_c.RF_AP_num + global_c.VLC_AP_num,), dtype=np.float32)
 
     def step(self, action):
         done = False
         self.currstep += 1
-        # flag = [False for i in range(global_c.UE_num)]
-        # print(action)
-        # for i in range(global_c.UE_num):
-        #     if thesis.my_ue_list[i].group == "SAP":
-        #         if action[i] in range(0,5):
-        #             flag[i] = True
-        #     elif thesis.my_ue_list[i].group == "LA":
-        #         if action[i] in range(0,9):
-        #             flag[i] = True
-        # if (False in flag):
-        #     action = LAHLWNenv.possible_action()
-        my_action = LAHLWNenv.possible_action()
-        ap_associated_matrix = thesis.Thesis.action_to_AP_association_matrix(my_action)
+        
+        # 法一 : action = spaces.Box(low= 0, high=8,shape=(global_c.UE_num,),dtype=np.int8)
+        # my_action = LAHLWNenv.possible_action()
+        # ap_associated_matrix = thesis.Thesis.action_to_AP_association_matrix(my_action)
+        # channel.Channel.updateAllvlcSINR(VLC_SINR_matrix=thesis.VLC_SINR_matrix,VLC_LOS_matrix=thesis.VLC_LOS_matrix,AP_association_matrix=ap_associated_matrix)
+        # new_state = thesis.Thesis.createState(my_action)
+        # state_list.append(new_state)
+        # action_list.append(my_action)
+        # reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2])
+        # # print("state:",new_state," reward:",reward)
+        # info = {}
+        # if self.currstep > 1000:
+        #     done = True
+        
+        # 法二 : actio = spaces.MultiDiscrete(np.array([9,9,9,9,5,5,5,5,5,5]))
+        ap_associated_matrix = thesis.Thesis.action_to_AP_association_matrix(action=action)
         channel.Channel.updateAllvlcSINR(VLC_SINR_matrix=thesis.VLC_SINR_matrix,VLC_LOS_matrix=thesis.VLC_LOS_matrix,AP_association_matrix=ap_associated_matrix)
-        new_state = thesis.Thesis.createState(my_action)
+        new_state = thesis.Thesis.createState(action=action)
         state_list.append(new_state)
-        action_list.append(my_action)
+        action_list.append(action)
         reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2])
         # print("state:",new_state," reward:",reward)
         info = {}
         if self.currstep > 1000:
             done = True
+
         return new_state,reward,done,info
 
     def reset(self):

@@ -83,16 +83,6 @@ class Thesis:
 
     @staticmethod
     def createState(action):
-        # check action 合法性
-        flag = [False for i in range(global_c.UE_num)]
-        for i in range(global_c.UE_num):
-            if my_ue_list[i].group == "SAP":
-                if action[i] in range(0,5):
-                    flag[i] = True
-            elif my_ue_list[i].group == "LA":
-                if action[i] in range(0,9):
-                    flag[i] = True
-
         # 法一 [[UE][UE][UE] * UE_num  ..... ]
         # state = [[-1]*4 for i in range(global_c.UE_num)] # UE_num
         # for i in range(global_c.UE_num):
@@ -112,31 +102,25 @@ class Thesis:
         lifi_first_snr = np.array([-1]*global_c.UE_num)
         lifi_second_snr = np.array([-1]*global_c.UE_num)
         ap_load = np.array([0]*(global_c.RF_AP_num+global_c.VLC_AP_num))
-         # 如果有 action 不合法 
-        if (False in flag):
-            # print("illegal")
-            state = np.concatenate((wifi_snr,lifi_first_snr,lifi_second_snr,ap_load))
-        else : 
-            # print("legal")
-            for i in range (global_c.UE_num):
-                highest_AP_value = -1
-                second_AP_value = -1
-                wifi_snr[i] = all_SINR_matrix[0][i] # RF SNR
-                for VLC_AP_index in range(global_c.VLC_AP_num):
-                    if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
-                        second_AP_value = highest_AP_value
-                        highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i]
-                lifi_first_snr[i] = 0.0 if highest_AP_value < 0 else highest_AP_value  # highest VLC SINR
-                lifi_second_snr[i] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
-            for ue_index in range(global_c.UE_num):
-                if action[ue_index] == 0 :
-                    ap_load[0] += 1 # only wifi
-                elif action[ue_index] > 0 and action[ue_index] < 5:
-                    ap_load[action[ue_index]] += 1 # only lifi
-                elif action[ue_index] > 4:
-                    ap_load[0] += 1
-                    ap_load[action[ue_index]-4] += 1
-            state = np.concatenate((wifi_snr,lifi_first_snr,lifi_second_snr,ap_load))
+        for i in range (global_c.UE_num):
+            highest_AP_value = -1
+            second_AP_value = -1
+            wifi_snr[i] = all_SINR_matrix[0][i] # RF SNR
+            for VLC_AP_index in range(global_c.VLC_AP_num):
+                if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
+                    second_AP_value = highest_AP_value
+                    highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i]
+            lifi_first_snr[i] = 0.0 if highest_AP_value < 0 else highest_AP_value  # highest VLC SINR
+            lifi_second_snr[i] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
+        for ue_index in range(global_c.UE_num):
+            if action[ue_index] == 0 :
+                ap_load[0] += 1 # only wifi
+            elif action[ue_index] > 0 and action[ue_index] < 5:
+                ap_load[action[ue_index]] += 1 # only lifi
+            elif action[ue_index] > 4:
+                ap_load[0] += 1
+                ap_load[action[ue_index]-4] += 1
+        state = np.concatenate((wifi_snr,lifi_first_snr,lifi_second_snr,ap_load))
         return state
     
     @staticmethod
@@ -210,8 +194,9 @@ class Thesis:
                         eta = global_c.eta_hho
                     elif preaction[i] == 0 and action[i] != 0 :
                         eta = global_c.eta_vho
-                    throughput = eta * data_rate * (1 / ap_load_vector[action[i]])
-            elif my_ue_list[i].group == "LA":
+                    ap_allocate_time = 0.0 if ap_load_vector[action[i]] == 0 else 1 / ap_load_vector[action[i]]
+                    throughput = eta * data_rate * ap_allocate_time
+            if my_ue_list[i].group == "LA":
                 if action[i] != -1 :
                     eta = 0.0
                     if preaction[i] == action[i]:
@@ -220,10 +205,17 @@ class Thesis:
                         eta = global_c.eta_hho
                     else:
                         eta = global_c.eta_vho
+                    rf_ap_allocate_time = 0.0 if ap_load_vector[0] == 0 else 1 / ap_load_vector[0]
+                    vlc_ap_allocate_time = 0.0
+                    if action[i] > 4 and ap_load_vector[action[i]-4] != 0:
+                        vlc_ap_allocate_time = 1 / ap_load_vector[action[i]-4]
+                    if action[i] < 5 and ap_load_vector[action[i]] != 0:
+                        vlc_ap_allocate_time = 1 / ap_load_vector[action[i]]
+                        
                     if action[i] > 4:
-                        throughput = eta * ((RF_data_rate_vecotr[i] * ( 1 / ap_load_vector[0])) + VLC_data_rate_matrix[action[i]-5][i] * (1 / ap_load_vector[action[i]-4]))
+                        throughput = eta * ((RF_data_rate_vecotr[i] * rf_ap_allocate_time) + VLC_data_rate_matrix[action[i]-5][i] * vlc_ap_allocate_time)
                     else:
-                        throughput = eta * RF_data_rate_vecotr[i] * (1/ap_load_vector[0]) if action[i] == 0 else eta * VLC_data_rate_matrix[action[i]-1][i] * (1/ap_load_vector[action[i]])
+                        throughput = eta * RF_data_rate_vecotr[i] * rf_ap_allocate_time if action[i] == 0 else eta * VLC_data_rate_matrix[action[i]-1][i] * vlc_ap_allocate_time
             total_throughput += throughput
         return total_throughput / global_c.UE_num
 
@@ -254,8 +246,8 @@ class Thesis:
             if action[i] == 0:
                 ue_final.append(RF_data_rate_vecotr[i])
             elif action[i] > 0 and action[i] < 5 :
-                ue_final.append(VLC_data_rate_matrix[int(action[i])-1][i])
+                ue_final.append(VLC_data_rate_matrix[action[i]-1][i])
             elif action[i] > 4 :
-                ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[int(action[i])-5][i])
+                ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[action[i]-5][i])
         return ue_final
     
