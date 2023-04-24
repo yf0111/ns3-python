@@ -60,7 +60,9 @@ class LAHLWNenv(gym.Env):
         new_state = thesis.Thesis.createState(action=action)
         state_list.append(new_state)
         action_list.append(action)
-        reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2])
+        ue_require = thesis.Thesis.getUEdemand()
+        reward = thesis.Thesis.calculateR1(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2]) # R1
+        # reward = thesis.Thesis.calculateR2(state=state_list[len(state_list)-1],prestate=state_list[len(state_list)-2],action=action_list[len(action_list)-1],preaction=action_list[len(action_list)-2],ue_require=ue_require) # R2
         # print("state:",new_state," reward:",reward)
         info = {}
         if self.currstep > 1000:
