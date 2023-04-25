@@ -221,8 +221,6 @@ class Thesis:
 
     @staticmethod
     def calculateR2(state,prestate,action,preaction,ue_require):
-    
-        # 法二 [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
         total_us = 0.0
         ap_load_vector = Thesis.updateAPload(state=state)
         for i in range(global_c.UE_num):
@@ -265,6 +263,53 @@ class Thesis:
                     us = throughput / ue_require[i]
             total_us += us * global_c.C_one
         return total_us / global_c.UE_num
+
+    @staticmethod
+    def calculateR3(state,prestate,action,preaction,ue_require):
+        total_q = 0.0
+        ap_load_vector = Thesis.updateAPload(state=state)
+        for i in range(global_c.UE_num):
+            q = 0.0
+            if my_ue_list[i].group == "SAP":
+                if action[i] != -1 :
+                    data_rate = 0.0
+                    if action[i] < 5:
+                        data_rate = RF_data_rate_vecotr[i] if action[i] == 0 else VLC_data_rate_matrix[action[i]-1][i]
+                    eta = 0.0
+                    if preaction[i] == action[i]:
+                        eta = 1
+                    elif preaction[i] != 0 and action[i] != 0 :
+                        eta = global_c.eta_hho
+                    elif preaction[i] == 0 and action[i] != 0 :
+                        eta = global_c.eta_vho
+                    ap_allocate_time = 0.0 if ap_load_vector[action[i]] == 0 else 1 / ap_load_vector[action[i]]
+                    throughput = eta * data_rate * ap_allocate_time
+                    us = throughput / ue_require[i]
+                    q = (-global_c.C_two * (1 - us)) if us <= 0.5 else global_c.C_one * us
+            if my_ue_list[i].group == "LA":
+                if action[i] != -1 :
+                    eta = 0.0
+                    if preaction[i] == action[i]:
+                        eta = 1
+                    elif preaction[i] > 4 and action[i] > 4:
+                        eta = global_c.eta_hho
+                    else:
+                        eta = global_c.eta_vho
+                    rf_ap_allocate_time = 0.0 if ap_load_vector[0] == 0 else 1 / ap_load_vector[0]
+                    vlc_ap_allocate_time = 0.0
+                    if action[i] > 4 and ap_load_vector[action[i]-4] != 0:
+                        vlc_ap_allocate_time = 1 / ap_load_vector[action[i]-4]
+                    if action[i] < 5 and ap_load_vector[action[i]] != 0:
+                        vlc_ap_allocate_time = 1 / ap_load_vector[action[i]]
+                        
+                    if action[i] > 4:
+                        throughput = eta * ((RF_data_rate_vecotr[i] * rf_ap_allocate_time) + VLC_data_rate_matrix[action[i]-5][i] * vlc_ap_allocate_time)
+                    else:
+                        throughput = eta * RF_data_rate_vecotr[i] * rf_ap_allocate_time if action[i] == 0 else eta * VLC_data_rate_matrix[action[i]-1][i] * vlc_ap_allocate_time
+                    us = throughput / ue_require[i]
+                    q = ( -global_c.C_two * (1-us)) if us <= 0.5 else global_c.C_one * us
+            total_q += q
+        return total_q / global_c.UE_num
 
     @staticmethod
     def action_to_AP_association_matrix(action):
