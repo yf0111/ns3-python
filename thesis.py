@@ -4,6 +4,8 @@ import channel
 import math
 import LAHLWNenv
 import numpy as np
+from pymobility.models.mobility import random_waypoint
+
 
 # assume static environment 
 my_ue_list = []
@@ -15,8 +17,7 @@ RF_channel_gain_vector = [0 for i in range(global_c.UE_num)] # 1 x UE_num
 RF_SINR_vector = [0 for i in range(global_c.UE_num)] # 1 x UE_num
 RF_data_rate_vecotr = [0 for i in range(global_c.UE_num)] # 1 x UE_num
 all_SINR_matrix = [[0]*global_c.UE_num for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # (RF_AP_num + VLC_AP_num) x UE_num
-# ap_assocoated_matrix = [[0]*global_c.UE_num for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # (RF_AP_num + VLC_AP_num) x UE_num
-# ap_load_vector = [0 for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # 1 x (RF_AP_num + VLC_AP_num)
+rw = random_waypoint(global_c.UE_num, dimensions=(5, 5), velocity=(0.1, 1.0), wt_max=10.0)
 
 
 class User:
@@ -36,6 +37,14 @@ class User:
         new_polor_angle = global_c.c_0 + global_c.c_1 + self.polar_angle + np.random.normal() # in degree
         self.polar_angle = new_polor_angle / 180 * math.pi
         self.azimuth_angle = -1 * math.pi
+
+    @staticmethod
+    def orwp():
+        positions = next(rw)
+        for i in range(global_c.UE_num):
+            my_ue_list[i].x_pos = positions[i][0]
+            my_ue_list[i].y_pos = positions[i][1]
+            my_ue_list[i].randomOrientationAngle()
 
 
 class AP:
@@ -65,7 +74,7 @@ class Thesis:
                 x = ((j-1) % global_c.VLC_AP_per_row + 1) * delta - (global_c.room_size / 2 + (global_c.room_size / global_c.VLC_AP_per_row) / 2)
                 y = ((j-1) // global_c.VLC_AP_per_row + 1) * delta - (global_c.room_size / 2 + (global_c.room_size / global_c.VLC_AP_per_row) / 2)
                 my_ap_list.append(AP(j,x,y,global_c.VLC_AP_height))
-
+        
         # show.Show.printRFAPPosition(ap_list=my_ap_list)
         # show.Show.printVLCAPPosition(ap_list=my_ap_list)
         # show.Show.printUEPosition(ue_list=my_ue_list)
@@ -83,21 +92,7 @@ class Thesis:
 
     @staticmethod
     def createState(action):
-        # 法一 [[UE][UE][UE] * UE_num  ..... ]
-        # state = [[-1]*4 for i in range(global_c.UE_num)] # UE_num
-        # for i in range(global_c.UE_num):
-        #     highest_AP_value = -1
-        #     second_AP_value = -1
-        #     for VLC_AP_index in range(global_c.VLC_AP_num):
-        #         if VLC_SINR_matrix[VLC_AP_index][i] > highest_AP_value:
-        #             second_AP_value = highest_AP_value
-        #             highest_AP_value = VLC_SINR_matrix[VLC_AP_index][i] 
-        #     state[i][0] = all_SINR_matrix[0][i] # RF SINR
-        #     state[i][1] = 0.0 if highest_AP_value < 0 else highest_AP_value # highest VLC SINR
-        #     state[i][2] = 0.0 if second_AP_value < 0 else second_AP_value # second VLC SINR
-        #     state[i][3] = action[i]
-
-        # 法二 [[Wifi SNR] [highest VLC SINR] [second VLC SINR] [AP load]]  -> 一個一維大vector (1 x (UE_num + UE_num + UE_num + RF_AP_num + VLC_AP_num)) 
+        # [[Wifi SNR] [highest VLC SINR] [second VLC SINR] [AP load]]  -> 一個一維大vector (1 x (UE_num + UE_num + UE_num + RF_AP_num + VLC_AP_num)) 
         wifi_snr = np.array([-1]*global_c.UE_num)
         lifi_first_snr = np.array([-1]*global_c.UE_num)
         lifi_second_snr = np.array([-1]*global_c.UE_num)
@@ -125,16 +120,7 @@ class Thesis:
     
     @staticmethod
     def updateAPload(state):
-        # 法一 [[UE][UE][UE] * UE_num  ..... ]
-        # ap_load_vector = [0 for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # 1 x (RF_AP_num + VLC_AP_num)
-        # for i in range(global_c.UE_num):
-        #     if state[i][3] != -1 and state[i][3] < 5:
-        #         ap_load_vector[state[i][3]] += 1
-        #     if state[i][3] > 4 and state[i][3] < 9:
-        #         ap_load_vector[0] += 1
-        #         ap_load_vector[state[i][3]-4] += 1
-
-        # 法二 [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
+        #  [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
         ap_load_vector = [0 for i in range(global_c.RF_AP_num + global_c.VLC_AP_num)] # 1 x (RF_AP_num + VLC_AP_num)
         for i in range(len(ap_load_vector)):
             ap_load_vector[i] = state[3*global_c.UE_num+i]
@@ -142,42 +128,7 @@ class Thesis:
 
     @staticmethod
     def calculateR1(state,prestate,action,preaction):
-        # 法一 [[UE][UE][UE] * UE_num  ..... ]
-        # total_throughput = 0.0
-        # ap_load_vector = Thesis.updateAPload(state)
-        # for i in range(global_c.UE_num):
-        #     throughput = 0.0
-        #     if my_ue_list[i].group == "SAP":
-        #         if state[i][3] != -1 :
-        #             data_rate = 0.0
-        #             if state[i][3] < 5:
-        #                 data_rate = RF_data_rate_vecotr[i] if state[i][3] == 0 else VLC_data_rate_matrix[state[i][3]-1][i]
-                    
-        #             eta = 0.0
-        #             if prestate[i][3] == state[i][3] :
-        #                 eta = 1
-        #             elif prestate[i][3] != 0 and state[i][3] !=0 :
-        #                 eta = global_c.eta_hho
-        #             elif prestate[i][3] == 0 and state[i][3] !=0 :
-        #                 eta = global_c.eta_vho
-        #             throughput = eta * data_rate * (1 / ap_load_vector[state[i][3]])
-        #     if my_ue_list[i].group == "LA":
-        #         if state[i][3] != -1:
-        #             eta = 0.0
-        #             if prestate[i][3] == state[i][3]:
-        #                 eta = 1
-        #             elif prestate[i][3] > 4 and state[i][3] > 4:
-        #                 eta = global_c.eta_hho
-        #             else:
-        #                 eta = global_c.eta_vho
-        #             if state[i][3] > 4:
-        #                 throughput = eta * ((RF_data_rate_vecotr[i] * (1 / ap_load_vector[0])) + VLC_data_rate_matrix[state[i][3]-5][i] * (1 / ap_load_vector[state[i][3]-4]) )
-        #             else :
-        #                 throughput = eta * RF_data_rate_vecotr[i] * (1 / ap_load_vector[0]) if state[i][3] == 0 else eta * VLC_data_rate_matrix[state[i][3]-1][i] * (1 / ap_load_vector[state[i][3]])
-        #     total_throughput += throughput
-        # return total_throughput / global_c.UE_num
-    
-        # 法二 [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
+        # [一個一維大vector ( wifi + lifi + lifi + ap_load) ]
         total_throughput = 0.0
         ap_load_vector = Thesis.updateAPload(state=state)
         for i in range(global_c.UE_num):
@@ -343,3 +294,49 @@ class Thesis:
                 ue_final.append(RF_data_rate_vecotr[i] + VLC_data_rate_matrix[action[i]-5][i])
         return ue_final
     
+    @staticmethod
+    def cal_performance(ue_new_satisfaction,ue_old_satisfaction,ue_get,ue_require):
+        
+        # reliability
+        ue_reliability = [0 for i in range(global_c.UE_num)]  # 1 x UE_num
+        for ue_index in range(global_c.UE_num):
+            for ap_index in range(global_c.RF_AP_num+global_c.VLC_AP_num):
+                if ap_index < global_c.RF_AP_num:
+                    if RF_SINR_vector[ue_index] > global_c.SINR_threshold:
+                        ue_reliability[ue_index] = 1
+                    else:
+                        ue_reliability[ue_index] = 0
+                else:
+                    if VLC_SINR_matrix[ap_index-1][ue_index] > global_c.SINR_threshold:
+                        ue_reliability[ue_index] = 1
+                    else:
+                        ue_reliability[ue_index] = 0
+
+        # latency
+        ue_latency = [0 for i in range(global_c.UE_num)]  # 1 x UE_num
+        for ue_index in range(global_c.UE_num):
+            TL = 0.4 + (global_c.packet_size / ( 1e6 * ue_get[ue_index]) * 1e3)
+            if TL < global_c.T_max:
+                ue_latency[ue_index] = 1
+            else:
+                ue_latency[ue_index] = 0
+        
+        # data rate
+        ue_data_rate = [0 for i in range(global_c.UE_num)]  # 1 x UE_num
+        for ue_index in range(global_c.UE_num):
+            ue_data_rate[ue_index] = min(ue_get[ue_index] / ue_require[ue_index],1)
+        
+        # new satisfaction
+        for ue_index in range(global_c.UE_num):
+            if ue_get[ue_index] < ue_require[ue_index]:
+                ue_new_satisfaction[ue_index] = 0
+            else:
+                if ue_index < (global_c.UE_num / 2):
+                    ue_new_satisfaction[ue_index] = (0.4 * ue_reliability[ue_index]) + (0.4 * ue_latency[ue_index]) + (0.2 * ue_data_rate[ue_index])
+                else:
+                    ue_new_satisfaction[ue_index] = (0.1 * ue_reliability[ue_index]) + (0.1 * ue_latency[ue_index]) + (0.8 * ue_data_rate[ue_index])
+
+        # old satisfaction
+        for ue_index in range(global_c.UE_num):
+            ue_old_satisfaction[ue_index] = min(ue_get[ue_index] / ue_require[ue_index] , 1)
+           

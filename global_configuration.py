@@ -1,7 +1,8 @@
 import math
 
 room_size = 5
-state_num = 1000
+state_num = 100
+simulation_num = 100
 
 # RF AP
 RF_AP_num = 1
@@ -55,3 +56,6 @@ eta_hho = 0.9
 eta_vho = 0.6
 C_one = 100
 C_two = 1000
+SINR_threshold = 5
+T_max = 1
+packet_size = 2000
