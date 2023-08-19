@@ -60,3 +60,11 @@ class Show:
     def printUEPosition(ue_list):
         for UE_index in range(global_c.UE_num):
             print("Position of UE ",UE_index," : (",ue_list[UE_index].x_pos,",",ue_list[UE_index].y_pos,",",ue_list[UE_index].z_pos,")")
+
+    @staticmethod
+    def printIndoorUE(ue_list):
+        indoor_num = 0
+        for UE_index in range(global_c.UE_num):
+            if(ue_list[UE_index].x_pos >= -5/2 and ue_list[UE_index].x_pos <= 5/2 and ue_list[UE_index].y_pos >= -5/2 and ue_list[UE_index].y_pos <= 5/2):
+                indoor_num += 1
+        print(indoor_num)

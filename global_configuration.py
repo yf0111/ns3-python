@@ -1,6 +1,6 @@
 import math
 
-room_size = 5
+room_size = 8
 state_num = 100
 simulation_num = 100
 

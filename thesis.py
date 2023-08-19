@@ -339,4 +339,11 @@ class Thesis:
         # old satisfaction
         for ue_index in range(global_c.UE_num):
             ue_old_satisfaction[ue_index] = min(ue_get[ue_index] / ue_require[ue_index] , 1)
-           
+    
+    @staticmethod
+    def calIndoorUE(ue_list):
+        indoor_num = 0
+        for UE_index in range(global_c.UE_num):
+            if(ue_list[UE_index].x_pos >= -5/2 and ue_list[UE_index].x_pos <= 5/2 and ue_list[UE_index].y_pos >= -5/2 and ue_list[UE_index].y_pos <= 5/2):
+                indoor_num += 1
+        return indoor_num
