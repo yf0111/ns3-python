@@ -1,4 +1,4 @@
-# ns3-python
+# thesis-python
 
 ## Preparation
 1. Download Python 3.7.16, and follow the introductuins provided by [sb3-contrib](https://sb3-contrib.readthedocs.io/en/master/modules/trpo.html) to install the required packages.
@@ -15,7 +15,11 @@ We have the flexibility to configure various parameters by modifying the `global
 > Remerber to load a model that matches your configured network environment, otherwise it will result in error.
 
 
-### Appendix
+## Output file
+
+If we do the simulation $N$ times, then there are $N$ rows in the output file, each of which has four values: average user outage probability, average user satisfaction, average throughput (per user) and average jain's fairness index.
+
+## Appendix
 1. Packages List
 - ![Alt text](image.png)
 - ![Alt text](image-1.png)

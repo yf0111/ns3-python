@@ -2,7 +2,7 @@ import math
 
 room_size = 8
 state_num = 100
-simulation_num = 100
+simulation_num = 1000
 
 # RF AP
 RF_AP_num = 1

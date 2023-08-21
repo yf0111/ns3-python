@@ -16,13 +16,11 @@ state_avg_ue_new_satisfaction = [[0] for i in range(global_c.state_num)]
 state_avg_ue_old_satisfaction = [[0] for i in range(global_c.state_num)]
 state_avg_ue_data_rate = [[0] for i in range(global_c.state_num)]
 state_avg_jain_fairness_index = [[0] for i in range(global_c.state_num)]
-state_avg_indoor_user = [[0] for i in range(global_c.state_num)]
 
 all_avg_ue_outage = [[0] for i in range(global_c.simulation_num)]
 all_avg_ue_satisfaction = [[0] for i in range(global_c.simulation_num)]
 all_avg_ue_data_rate = [[0] for i in range(global_c.simulation_num)]
 all_avg_jain_fairness_index = [[0] for i in range(global_c.simulation_num)]
-all_avg_indoor_user = [[0] for i in range(global_c.simulation_num)]
 
 env = LAHLWNenv()
 
@@ -85,12 +83,6 @@ for simulation in range(global_c.simulation_num):
         jain_fairness_bottom = jain_fairness_bottom * global_c.UE_num
         state_avg_jain_fairness_index[one] = jain_fairness_top / jain_fairness_bottom
         jain += state_avg_jain_fairness_index[one]
-        
-        # cal number of indoor user
-        indoor_num = thesis.Thesis.calIndoorUE(thesis.my_ue_list)
-        state_avg_indoor_user[one] = indoor_num
-        indoor += state_avg_indoor_user[one]
-
 
         
         thesis.User.orwp()
@@ -101,7 +93,6 @@ for simulation in range(global_c.simulation_num):
     all_avg_ue_satisfaction[simulation] = satisfaction / global_c.state_num
     all_avg_ue_data_rate[simulation] = data_rate / global_c.state_num
     all_avg_jain_fairness_index[simulation] = jain / global_c.state_num
-    all_avg_indoor_user[simulation] = indoor / global_c.state_num
 
     total_time += (end-start)
 
@@ -147,7 +138,7 @@ for simulation in range(global_c.simulation_num):
 with open('output.csv','w',newline='') as csvfile:
     writer = csv.writer(csvfile,delimiter=',')
     for i in range(global_c.simulation_num):
-        writer.writerow([all_avg_ue_outage[i],all_avg_ue_satisfaction[i],all_avg_ue_data_rate[i],all_avg_jain_fairness_index[i],all_avg_indoor_user[i]])
+        writer.writerow([all_avg_ue_outage[i],all_avg_ue_satisfaction[i],all_avg_ue_data_rate[i],all_avg_jain_fairness_index[i]])
 
 
 print("per simulation 執行時間：", total_time/global_c.state_num ,"秒")
